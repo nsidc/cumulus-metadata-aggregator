@@ -7,15 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **PODAAC-5876**
+  - Update to use CMA 2.0.0, thus allowing 2.0.3 layer for lambda
+  - Update build to use java 11
 ### Deprecated
 ### Removed
 ### Fixed
-- **PODAAC-5291**
-  - Assure the UMMG RelatedUrls arry in the following order
-    - http/https scientific data
-    - other http/https files
-    - s3 scientific data
-    - other s3 files
+### Security
+
+## [8.5.0]
+### Added
+- **PODAAC-5594**
+  - Support BasinID
+- **PODAAC-5770**
+  - use meta.isoXMLSpatialType to configure the collection should process the combination of footprint, orbit and bbox
+- **PODAAC-5717**
+  - Upgrade to UMMG 1.6.5
+  - support empty Pass in Cycle/Pass/Tile string
+### Deprecated
+### Removed
+### Fixed
+- **PODAAC-5708**
+  - .nc.iso.xml Polygon divided over IDL
+### Security
+
+- 
+## [8.4.0]
+### Added
+- Update metadata aggregator to add description to image variables from image processor and test tig forge processor
+### Deprecated
+### Removed
+### Fixed
+- **PODAAC-5614**
+  - Strip leading zeros from cycle and pass in validity check
 ### Security
 - Snyk: Security upgrade com.amazonaws:aws-java-sdk-s3 from 1.12.378 to 1.12.386
 
