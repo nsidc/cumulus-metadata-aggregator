@@ -3,7 +3,6 @@ package gov.nasa.cumulus.metadata.aggregator.processor;
 import com.google.gson.*;
 import cumulus_message_adapter.message_parser.AdapterLogger;
 import gov.nasa.cumulus.metadata.umm.generated.RelatedUrlType;
-import gov.nasa.cumulus.metadata.util.JSONUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.utils.URIBuilder;
 
@@ -11,6 +10,8 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
+import java.util.Iterator;
+
 
 public class ImageProcessor extends ProcessorBase{
     private final String className = this.getClass().getName();
@@ -34,7 +35,7 @@ public class ImageProcessor extends ProcessorBase{
             this.region = region;
             decodeVariables(input);
             this.workingDir = createWorkDir();
-            String newCMRStr = appendImageUrls(input, ummgStr);
+            String newCMRStr = appendImageUrl(input, ummgStr);
             String cmrFileName = buildCMRFileName(this.granuleId, this.executionId);
             long cmrFileSize = uploadCMRJson(cmrBucket, cmrDir, this.collectionName, cmrFileName,
                     newCMRStr);
@@ -54,15 +55,16 @@ public class ImageProcessor extends ProcessorBase{
         }
     }
 
-    public String appendImageUrls(String input, String cmrString)
+    public String appendImageUrl(String input, String cmrString)
             throws IOException, URISyntaxException {
         try {
             Gson gsonBuilder = getGsonBuilder();
             JsonObject cmrJsonObj = JsonParser.parseString(cmrString).getAsJsonObject();
             JsonArray relatedUrls = cmrJsonObj.getAsJsonArray("RelatedUrls");
-            // If cmrJson does not include relatedURLs jsonArray, then create one and then attached to cmrJsonObj
+            // If cmrJson does not included relatedURLs jsonArray, then create one and then attached to cmrJsonObj
             if (relatedUrls == null) {
                 relatedUrls = new JsonArray();
+                cmrJsonObj.add("RelatedUrls", relatedUrls);
             }
 
             JsonObject inputJsonObj = JsonParser.parseString(input).getAsJsonObject();
@@ -74,46 +76,33 @@ public class ImageProcessor extends ProcessorBase{
 
             files = granule.get("files").getAsJsonArray();
             JsonArray files = granule.get("files").getAsJsonArray();
-            /*  At this point, the RelatedUrls array has been sorted with
-                http/https scientific data
-                other http files
-                s3 scientific data
-                other s3 file
-             */
-            // first split relatedUrls to 2 arrays, one including http/https resources and
-            // the other array contain items which are NOT http/https resources
-            JsonArray httpArray = new JsonArray();
-            JsonArray otherItemsArray = new JsonArray();
-            String[] httpStrs = {"http", "https"};
-            relatedUrls.forEach(e -> {
-                if(JSONUtils.isStrStarsWithIgnoreCase(e.getAsJsonObject().get("URL").getAsString(), httpStrs)) {
-                    httpArray.add(e);
-                } else {
-                    otherItemsArray.add(e);
-                }
-            });
+
             for (JsonElement f : files) {
                 JsonObject fileObj = f.getAsJsonObject();
                 String filename = StringUtils.trim(f.getAsJsonObject().get("fileName").getAsString());
                 if(isImageFile(filename)) {
+
                     String downloadUrl = getImageDownloadUrl(distribution_endpoint, fileObj.get("bucket").getAsString(),
                             fileObj.get("key").getAsString());
-                    if(!isDownloadUrlAlreadyExist(relatedUrls, downloadUrl)) {
-                        RelatedUrlType relatedUrlType = new RelatedUrlType();
-                        relatedUrlType.setUrl(downloadUrl);
-                        relatedUrlType.setType(RelatedUrlType.RelatedUrlTypeEnum.GET_RELATED_VISUALIZATION);
-                        relatedUrlType.setSubtype(RelatedUrlType.RelatedUrlSubTypeEnum.DIRECT_DOWNLOAD);
-                        relatedUrlType.setMimeType(getImageMimeType(filename));
 
-                        String relatedUrlTypeStr = gsonBuilder.toJson(relatedUrlType);
-                        // append image Url to the end of the http array which has all http/https resources
-                        httpArray.add(JsonParser.parseString(relatedUrlTypeStr));
+                    // remove the related url if it already exists in related urls
+                    removeExistingUrls(relatedUrls, downloadUrl);
+
+                    // add related url for the new images in case something has changed
+                    RelatedUrlType relatedUrlType = new RelatedUrlType();
+                    relatedUrlType.setUrl(downloadUrl);
+                    relatedUrlType.setType(RelatedUrlType.RelatedUrlTypeEnum.GET_RELATED_VISUALIZATION);
+                    relatedUrlType.setSubtype(RelatedUrlType.RelatedUrlSubTypeEnum.DIRECT_DOWNLOAD);
+                    relatedUrlType.setMimeType(getImageMimeType(filename));
+
+                    if(fileObj.has("description")){
+                        relatedUrlType.setDescription(fileObj.get("description").getAsString());
                     }
+
+                    String relatedUrlTypeStr = gsonBuilder.toJson(relatedUrlType);
+                    relatedUrls.add(JsonParser.parseString(relatedUrlTypeStr));
                 }
             }
-            // now add all elements from the other array into the end of the httpArray
-            otherItemsArray.forEach(e -> httpArray.add(e)); // append otherItmesArray on the end of httpArray
-            cmrJsonObj.add("RelatedUrls", httpArray);
             String newCMRStr = gsonBuilder.toJson(cmrJsonObj);
             return newCMRStr;
         } catch (URISyntaxException ipe) {
@@ -127,9 +116,21 @@ public class ImageProcessor extends ProcessorBase{
         downloadUrl = StringUtils.trim(downloadUrl);
         for (JsonElement relatdUrl : relatedUrls) {
             String umg_downloadUrl = StringUtils.trim(relatdUrl.getAsJsonObject().get("URL").getAsString());
-            if(StringUtils.compare(umg_downloadUrl, downloadUrl) ==0) return true;
+            if(StringUtils.compare(umg_downloadUrl, downloadUrl) == 0) return true;
         }
         return false;
+    }
+
+    public void removeExistingUrls(JsonArray relatedUrls, String downloadUrl) {
+        downloadUrl = StringUtils.trim(downloadUrl);
+        Iterator<JsonElement> iterator = relatedUrls.iterator();
+        while (iterator.hasNext()) {
+            JsonElement relatedUrlElement = iterator.next();
+            String umg_downloadUrl = StringUtils.trim(relatedUrlElement.getAsJsonObject().get("URL").getAsString());
+            if (StringUtils.compareIgnoreCase(umg_downloadUrl, downloadUrl) == 0) {
+                iterator.remove();
+            }
+        }
     }
 
     public boolean isImageFile(String filename) {

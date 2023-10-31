@@ -76,10 +76,10 @@ public class ImageProcessorTest {
         try {
             ImageProcessor imageProcessor = new ImageProcessor();
             String downloadUri = imageProcessor.getImageDownloadUrl("https://distribution/xxx/bb/download",
-                    "my-public-bucket", "/collection_name/granuleId/Image1.jpg");
+                    "my-public-bucket","/collection_name/granuleId/Image1.jpg");
             assertEquals(downloadUri,
                     "https://distribution/xxx/bb/download/my-public-bucket/collection_name/granuleId/Image1.jpg");
-        } catch (URISyntaxException uriSyntaxException) {
+        } catch  (URISyntaxException uriSyntaxException) {
             System.out.println(uriSyntaxException);
             fail();
         }
@@ -88,24 +88,26 @@ public class ImageProcessorTest {
     /**
      * This test purposely make getImageDownloadUrl throwing URISyntaxException
      * by passing illegal character '^' as distribution_url.
-     * <p>
+     *
      * fail() will force the test case to fail. Since the test is to force URISyntaxException
      * to be thrown, it is a failed case if not thrown.
+     *
      */
     @Test
     public void testGetImageDownloadUrl_URISyntaxException() {
         try {
             ImageProcessor imageProcessor = new ImageProcessor();
             String downloadUri = imageProcessor.getImageDownloadUrl("https://distribution/xxx/bb/download^12334",
-                    "my-public-bucket", "s3://my-public-bucket/collection_name/granuleId/image1.jpg");
+                    "my-public-bucket","s3://my-public-bucket/collection_name/granuleId/image1.jpg");
             fail();
-        } catch (URISyntaxException uriSyntaxException) {
+        } catch  (URISyntaxException uriSyntaxException) {
             assertTrue(true);
         }
     }
 
     @Test
     public void testAppendImageUrl() {
+
         try {
             /**
              * From the input message , the distribution_endpoint is set to be:
@@ -115,7 +117,7 @@ public class ImageProcessorTest {
              *      "s3://dyen-cumulus-public/dataset-image/MODIS_A-JPL-L2P-v2019.0/standard-deviation.jpg",
              */
             ImageProcessor imageProcessor = new ImageProcessor();
-            String newCMRStr = imageProcessor.appendImageUrls(cmaString, cmrString);
+            String newCMRStr = imageProcessor.appendImageUrl(cmaString, cmrString);
             JsonObject cmrJsonObj = JsonParser.parseString(newCMRStr).getAsJsonObject();
             JsonArray relatedUrls = cmrJsonObj.getAsJsonArray("RelatedUrls");
             int count = findTimesOfAppearance(relatedUrls,
@@ -126,18 +128,28 @@ public class ImageProcessorTest {
                     "https://distribution_endpoint.jpl.nasa.gov/s3distribute/dyen-cumulus-public/dataset-image/MODIS_A-JPL-L2P-v2019.0/standard-deviation.jpg");
             assertEquals(count, 1);
 
+            // test description
+            for (JsonElement relatedUrl : relatedUrls) {
+                JsonObject fileObj = relatedUrl.getAsJsonObject();
+                String ummg_downloadUrl = StringUtils.trim(fileObj.get("URL").getAsString());
+                if(ummg_downloadUrl.equals("https://distribution_endpoint.jpl.nasa.gov/s3distribute/dyen-cumulus-public/dataset-image/MODIS_A-JPL-L2P-v2019.0/sst.png")){
+                    assertEquals(fileObj.get("Description").getAsString(), "sst");
+                }
+            }
+
         } catch (URISyntaxException | IOException pe) {
             System.out.println("testAppendImageUrl Error:" + pe);
             pe.printStackTrace();
         }
     }
 
+
     int findTimesOfAppearance(JsonArray relatedUrls, String downloadUrl) {
         int count = 0;
         downloadUrl = StringUtils.trim(downloadUrl);
         for (JsonElement relatedUrl : relatedUrls) {
             String ummg_downloadUrl = StringUtils.trim(relatedUrl.getAsJsonObject().get("URL").getAsString());
-            if (StringUtils.compare(ummg_downloadUrl, downloadUrl) == 0) count++;
+            if(StringUtils.compare(ummg_downloadUrl, downloadUrl) ==0) count ++;
         }
         return count;
     }
@@ -145,7 +157,7 @@ public class ImageProcessorTest {
     @Test
     public void testIsDownloadUrlAlreadyExist() {
         ImageProcessor imageProcessor = new ImageProcessor();
-        JsonObject cmrJsonObj = JsonParser.parseString(cmrString).getAsJsonObject();
+        JsonObject cmrJsonObj = new JsonParser().parse(cmrString).getAsJsonObject();
         JsonArray relatedUrls = cmrJsonObj.getAsJsonArray("RelatedUrls");
         boolean isAlreadyExist = imageProcessor.isDownloadUrlAlreadyExist(relatedUrls,
                 "https://jh72u371y2.execute-api.us-west-2.amazonaws.com:9000/DEV/dyen-cumulus-public/MODIS_A-JPL-L2P-v2019.0/20200101000000-JPL-L2P_GHRSST-SSTskin-MODIS_A-D-v02.0-fv01.0.sses_standard_deviation.png");
@@ -161,19 +173,19 @@ public class ImageProcessorTest {
     @Test
     public void testCreateOutputMessage() {
         ImageProcessor processor = new ImageProcessor();
-        String output = processor.createOutputMessage(cmaString, 334411,
+        String output =  processor.createOutputMessage(cmaString, 334411,
                 new BigInteger("3244"), "granuleId-3344-22.cmr.json", "my-private",
                 "CMR", "collectionName");
         JsonElement jsonElement = JsonParser.parseString(output);
         JsonArray granules = jsonElement.getAsJsonObject().get("output").getAsJsonArray();
         JsonArray files = granules.get(0).getAsJsonObject().get("files").getAsJsonArray();
 
-        JsonObject foundCMR = processor.getFileJsonObjByFileTrailing(files, ".cmr.json");
+        JsonObject foundCMR =  processor.getFileJsonObjByFileTrailing(files, ".cmr.json");
         assertEquals(foundCMR.get("bucket").getAsString(), "my-private");
         assertEquals(foundCMR.get("key").getAsString(), "CMR/collectionName/granuleId-3344-22.cmr.json");
         assertEquals(foundCMR.get("fileName").getAsString(), "granuleId-3344-22.cmr.json");
-        Long cmrFileSize = foundCMR.get("size").getAsLong();
-        BigInteger revisionId = jsonElement.getAsJsonObject().get("cmrRevisionId").getAsBigInteger();
+        Long  cmrFileSize =  foundCMR.get("size").getAsLong();
+        BigInteger  revisionId =  jsonElement.getAsJsonObject().get("cmrRevisionId").getAsBigInteger();
         assertEquals(334411, cmrFileSize.longValue());
         assertEquals(revisionId.compareTo(new BigInteger("3244")), 0);
     }

@@ -10,6 +10,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import javax.xml.bind.DatatypeConverter;
 import javax.xml.parsers.DocumentBuilder;
@@ -18,11 +19,13 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.*;
 
 import gov.nasa.cumulus.metadata.aggregator.factory.UmmgPojoFactory;
+import gov.nasa.cumulus.metadata.state.MENDsIsoXMLSpatialTypeEnum;
 import gov.nasa.cumulus.metadata.umm.generated.AdditionalAttributeType;
 import gov.nasa.cumulus.metadata.umm.generated.TrackPassTileType;
 import gov.nasa.cumulus.metadata.umm.generated.TrackType;
 import gov.nasa.cumulus.metadata.util.BoundingTools;
 import gov.nasa.cumulus.metadata.util.JSONUtils;
+import gov.nasa.cumulus.metadata.util.MENDsISOXmlUtiils;
 import gov.nasa.podaac.inventory.model.Granule;
 import gov.nasa.podaac.inventory.model.GranuleCharacter;
 import gov.nasa.podaac.inventory.model.DatasetElement;
@@ -51,6 +54,9 @@ import gov.nasa.podaac.inventory.api.Constant.GranuleArchiveStatus;
 import gov.nasa.podaac.inventory.api.Constant.GranuleArchiveType;
 import gov.nasa.cumulus.metadata.umm.model.UMMGranuleArchive;
 import org.xml.sax.SAXException;
+
+import com.vividsolutions.jts.algorithm.CGAlgorithms;
+
 import cumulus_message_adapter.message_parser.AdapterLogger;
 
 public class MetadataFilesToEcho {
@@ -62,6 +68,7 @@ public class MetadataFilesToEcho {
     boolean isIsoFile = false;
 	JSONObject additionalAttributes = null;
 	UmmgPojoFactory ummgPojoFactory = UmmgPojoFactory.getInstance();
+	HashSet<MENDsIsoXMLSpatialTypeEnum> isoXMLSpatialTypeEnumHashSet = new HashSet<>();
 
 	public MetadataFilesToEcho() {
 		this(false);
@@ -73,6 +80,15 @@ public class MetadataFilesToEcho {
 			this.granule = new IsoGranule();
 		else
 			this.granule = new UMMGranule();
+	}
+
+	public MetadataFilesToEcho(boolean isIso, HashSet inputIsoXMLSpatialTypeHashSet) {
+		this.isIsoFile = isIso;
+		if (isIsoFile)
+			this.granule = new IsoGranule();
+		else
+			this.granule = new UMMGranule();
+		this.isoXMLSpatialTypeEnumHashSet = inputIsoXMLSpatialTypeHashSet;
 	}
 
 	//this method reads the configuration file (per dataset) sent to this class (.cfg)
@@ -260,14 +276,9 @@ public class MetadataFilesToEcho {
 	public void setGranuleFileSizeAndChecksum(JSONArray input_granules) {
 
 		JSONArray files = (JSONArray)((JSONObject)input_granules.get(0)).get("files");
-
+		AdapterLogger.LogDebug(this.className + " setGranuleFileSizeAndChecksum files[]:" + files);
 		for(Object f: files){
 			JSONObject file = (JSONObject)f;
-			AdapterLogger.LogDebug(this.className + " UMM-G GranuleArchive filename:" + (String)file.get("fileName"));
-			AdapterLogger.LogDebug(this.className + " UMM-G GranuleArchive filesize:" + ((Double) file.get("size")).longValue());
-			AdapterLogger.LogDebug(this.className + " UMM-G GranuleArchive checksum:" + (String)file.get("checksum"));
-			AdapterLogger.LogDebug(this.className + " UMM-G GranuleArchive checksumType:" + (String)file.get("checksumType"));
-			AdapterLogger.LogDebug(this.className + " UMM-G GranuleArchive type:" + (String)file.get("type"));
 			UMMGranuleArchive uga = new UMMGranuleArchive();
 			uga.setName((String)file.get("fileName"));
 			uga.setFileSize(((Double) file.get("size")).longValue());
@@ -411,97 +422,96 @@ public class MetadataFilesToEcho {
         }
     }
 
-    public IsoGranule readIsoMendsMetadataFile(String s3Location, Document doc, XPath xpath) throws XPathExpressionException {
+	public IsoGranule readIsoMendsMetadataFile(String s3Location, Document doc, XPath xpath) throws XPathExpressionException {
+		if (MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.NORTH_BOUNDING_COORDINATE, "IsoMendsXPath.NORTH_BOUNDING_COORDINATE")!= "") {
+			setGranuleBoundingBox(
+					Double.parseDouble(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.NORTH_BOUNDING_COORDINATE, "IsoMendsXPath.NORTH_BOUNDING_COORDINATE")),
+					Double.parseDouble(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.SOUTH_BOUNDING_COORDINATE, "IsoMendsXPath.SOUTH_BOUNDING_COORDINATE")),
+					Double.parseDouble(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.EAST_BOUNDING_COORDINATE, "IsoMendsXPath.EAST_BOUNDING_COORDINATE")),
+					Double.parseDouble(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.WEST_BOUNDING_COORDINATE, "IsoMendsXPath.WEST_BOUNDING_COORDINATE")));
+		}
+		((IsoGranule) granule).setPolygon(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.POLYGON, "IsoMendsXPath.POLYGON"));
+		((IsoGranule) granule).setOrientation(CGAlgorithms.COUNTERCLOCKWISE);
+		NodeList nodes = (NodeList) xpath.evaluate(IsoMendsXPath.DATA_FILE, doc, XPathConstants.NODESET);
+		for (int i = 0; i < nodes.getLength(); i++) {
+			Element dataFile = (Element) nodes.item(i);
 
-        if (xpath.evaluate(IsoMendsXPath.NORTH_BOUNDING_COORDINATE, doc) != "") {
-            setGranuleBoundingBox(
-                    Double.parseDouble(xpath.evaluate(IsoMendsXPath.NORTH_BOUNDING_COORDINATE, doc)),
-                    Double.parseDouble(xpath.evaluate(IsoMendsXPath.SOUTH_BOUNDING_COORDINATE, doc)),
-                    Double.parseDouble(xpath.evaluate(IsoMendsXPath.EAST_BOUNDING_COORDINATE, doc)),
-                    Double.parseDouble(xpath.evaluate(IsoMendsXPath.WEST_BOUNDING_COORDINATE, doc)));
-        }
-        ((IsoGranule) granule).setPolygon(xpath.evaluate(IsoMendsXPath.POLYGON, doc));
+			String description = xpath.evaluate(IsoMendsXPath.DATA_FILE_FILE_DESCRIPTION, dataFile);
+			Pattern p = Pattern.compile("Size:\\s(.*)\\sSizeUnit:\\s(.*)\\sChecksumValue:\\s(.*)\\sChecksumAlgorithm:\\s(.*)\\sDescription:\\s(.*)");
+			Matcher m = p.matcher(description);
+			if (m.find()) {
+				String type = m.group(5);
+				if (type.equals("Science data file") || type.equals("ISO/Archive metadata file")
+						|| type.equals("Quicklook Image of the Science data file")) {
+					String fileFormat = xpath.evaluate(IsoMendsXPath.DATA_FILE_FILE_FORMAT, dataFile);
+					if (type.equals("Science data file")) {
+						granule.setDataFormat(fileFormat);
+					}
 
-        NodeList nodes = (NodeList) xpath.evaluate(IsoMendsXPath.DATA_FILE, doc, XPathConstants.NODESET);
-        for (int i = 0; i < nodes.getLength(); i++) {
-            Element dataFile = (Element) nodes.item(i);
+					IsoGranuleArchive ga = new IsoGranuleArchive();
+					ga.setType(fileFormat);
+					ga.setFileSize(Long.parseLong(m.group(1)));
+					ga.setSizeUnit(m.group(2));
+					ga.setName(xpath.evaluate(IsoMendsXPath.DATA_FILE_FILE_NAME, dataFile));
+					ga.setMimeType(xpath.evaluate(IsoMendsXPath.DATA_FILE_FILE_MIME_TYPE, dataFile));
+					ga.setChecksum(m.group(3));
+					ga.setChecksumAlgorithm(m.group(4));
+					granule.add(ga);
+				}
+			}
+		}
 
-            String description = xpath.evaluate(IsoMendsXPath.DATA_FILE_FILE_DESCRIPTION, dataFile);
-            Pattern p = Pattern.compile("Size:\\s(.*)\\sSizeUnit:\\s(.*)\\sChecksumValue:\\s(.*)\\sChecksumAlgorithm:\\s(.*)\\sDescription:\\s(.*)");
-            Matcher m = p.matcher(description);
-            if (m.find()) {
-                String type = m.group(5);
-                if (type.equals("Science data file") || type.equals("ISO/Archive metadata file")
-                        || type.equals("Quicklook Image of the Science data file")) {
-                    String fileFormat = xpath.evaluate(IsoMendsXPath.DATA_FILE_FILE_FORMAT, dataFile);
-                    if (type.equals("Science data file")) {
-                        granule.setDataFormat(fileFormat);
-                    }
+		((IsoGranule) granule).setProducerGranuleId(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.PRODUCER_GRANULE_ID, "IsoMendsXPath.PRODUCER_GRANULE_ID"));
+		((IsoGranule) granule).setCrid(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.CRID, "IsoMendsXPath.CRID"));
 
-                    IsoGranuleArchive ga = new IsoGranuleArchive();
-                    ga.setType(fileFormat);
-                    ga.setFileSize(Long.parseLong(m.group(1)));
-                    ga.setSizeUnit(m.group(2));
-                    ga.setName(xpath.evaluate(IsoMendsXPath.DATA_FILE_FILE_NAME, dataFile));
-                    ga.setMimeType(xpath.evaluate(IsoMendsXPath.DATA_FILE_FILE_MIME_TYPE, dataFile));
-                    ga.setChecksum(m.group(3));
-                    ga.setChecksumAlgorithm(m.group(4));
-                    granule.add(ga);
-                }
-            }
-        }
+		NodeList identifiers = (NodeList) xpath.evaluate(IsoMendsXPath.IDENTIFIERS, doc, XPathConstants.NODESET);
+		for (int i = 0; i < identifiers.getLength(); i++) {
+			Element identifier = (Element) identifiers.item(i);
+			String identifierDescription = xpath.evaluate(IsoMendsXPath.IDENTIFIER_DESCRIPTION, identifier);
+			((IsoGranule) granule).addIdentifier(identifierDescription.substring(identifierDescription.indexOf(" ") + 1), xpath.evaluate(IsoMendsXPath.IDENTIFIER_CODE, identifier));
+		}
 
-        ((IsoGranule) granule).setProducerGranuleId(xpath.evaluate(IsoMendsXPath.PRODUCER_GRANULE_ID, doc));
-        ((IsoGranule) granule).setCrid(xpath.evaluate(IsoMendsXPath.CRID, doc));
+		String reprocessingPlanned = MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.REPROCESSING_PLANNED, "IsoMendsXPath.REPROCESSING_PLANNED");
+		((IsoGranule) granule).setReprocessingPlanned(reprocessingPlanned.substring(reprocessingPlanned.indexOf(" ") + 1));
 
-        NodeList identifiers = (NodeList) xpath.evaluate(IsoMendsXPath.IDENTIFIERS, doc, XPathConstants.NODESET);
-        for (int i = 0; i < identifiers.getLength(); i++) {
-            Element identifier = (Element) identifiers.item(i);
-            String identifierDescription = xpath.evaluate(IsoMendsXPath.IDENTIFIER_DESCRIPTION, identifier);
-            ((IsoGranule) granule).addIdentifier(identifierDescription.substring(identifierDescription.indexOf(" ") + 1), xpath.evaluate(IsoMendsXPath.IDENTIFIER_CODE, identifier));
-        }
+		String reprocessingActual = xpath.evaluate(IsoMendsXPath.REPROCESSING_ACTUAL, doc);
+		((IsoGranule) granule).setReprocessingActual(reprocessingActual.substring(reprocessingActual.indexOf(" ") + 1));
 
-        String reprocessingPlanned = xpath.evaluate(IsoMendsXPath.REPROCESSING_PLANNED, doc);
-        ((IsoGranule) granule).setReprocessingPlanned(reprocessingPlanned.substring(reprocessingPlanned.indexOf(" ") + 1));
+		((IsoGranule) granule).setParameterName(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.PARAMETER_NAME, "IsoMendsXPath.PARAMETER_NAME"));
+		String qaPercentMissingData = MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.QA_PERCENT_MISSING_DATA, "IsoMendsXPath.QA_PERCENT_MISSING_DATA");
+		if (qaPercentMissingData != "" && BoundingTools.isParseable(qaPercentMissingData)) {
+			((IsoGranule) granule).setQAPercentMissingData(Double.parseDouble(qaPercentMissingData));
+		}
+		String qaPercentOutOfBoundsData = MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.QA_PERCENT_OUT_OF_BOUNDS_DATA, "IsoMendsXPath.QA_PERCENT_OUT_OF_BOUNDS_DATA");
+		if (qaPercentOutOfBoundsData != "" && BoundingTools.isParseable(qaPercentOutOfBoundsData)) {
+			((IsoGranule) granule).setQAPercentOutOfBoundsData(Double.parseDouble(qaPercentOutOfBoundsData));
+		}
 
-        String reprocessingActual = xpath.evaluate(IsoMendsXPath.REPROCESSING_ACTUAL, doc);
-        ((IsoGranule) granule).setReprocessingActual(reprocessingActual.substring(reprocessingActual.indexOf(" ") + 1));
+		((IsoGranule) granule).setOrbit(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.ORBIT, "IsoMendsXPath.ORBIT"));
+		((IsoGranule) granule).setSwotTrack(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.SWOT_TRACK, "IsoMendsXPath.SWOT_TRACK"));
 
-        ((IsoGranule) granule).setParameterName(xpath.evaluate(IsoMendsXPath.PARAMETER_NAME, doc));
-        String qaPercentMissingData = xpath.evaluate(IsoMendsXPath.QA_PERCENT_MISSING_DATA, doc);
-        if (qaPercentMissingData != "" && BoundingTools.isParseable(qaPercentMissingData)) {
-            ((IsoGranule) granule).setQAPercentMissingData(Double.parseDouble(qaPercentMissingData));
-        }
-        String qaPercentOutOfBoundsData = xpath.evaluate(IsoMendsXPath.QA_PERCENT_OUT_OF_BOUNDS_DATA, doc);
-        if (qaPercentOutOfBoundsData != "" && BoundingTools.isParseable(qaPercentOutOfBoundsData)) {
-            ((IsoGranule) granule).setQAPercentOutOfBoundsData(Double.parseDouble(qaPercentOutOfBoundsData));
-        }
+		Source source = new Source();
+		source.setSourceShortName(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.PLATFORM, "IsoMendsXPath.PLATFORM"));
 
-        ((IsoGranule) granule).setOrbit(xpath.evaluate(IsoMendsXPath.ORBIT, doc));
-        ((IsoGranule) granule).setSwotTrack(xpath.evaluate(IsoMendsXPath.SWOT_TRACK, doc));
+		Sensor sensor = new Sensor();
+		sensor.setSensorShortName(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.INSTRUMENT, "IsoMendsXPath.INSTRUMENT"));
 
-        Source source = new Source();
-        source.setSourceShortName(xpath.evaluate(IsoMendsXPath.PLATFORM, doc));
+		DatasetSource datasetSource = new DatasetSource();
+		DatasetSource.DatasetSourcePK datasetSourcePK = new DatasetSource.DatasetSourcePK();
+		datasetSourcePK.setSource(source);
+		datasetSourcePK.setSensor(sensor);
+		datasetSource.setDatasetSourcePK(datasetSourcePK);
 
-        Sensor sensor = new Sensor();
-        sensor.setSensorShortName(xpath.evaluate(IsoMendsXPath.INSTRUMENT, doc));
+		dataset.add(datasetSource);
 
-        DatasetSource datasetSource = new DatasetSource();
-        DatasetSource.DatasetSourcePK datasetSourcePK = new DatasetSource.DatasetSourcePK();
-        datasetSourcePK.setSource(source);
-        datasetSourcePK.setSensor(sensor);
-        datasetSource.setDatasetSourcePK(datasetSourcePK);
+		NodeList inputGranules = (NodeList) xpath.evaluate(IsoMendsXPath.GRANULE_INPUT, doc, XPathConstants.NODESET);
+		for (int i = 0; i < inputGranules.getLength(); i++) {
+			((IsoGranule) granule).addInputGranule(inputGranules.item(i).getTextContent().trim());
+		}
 
-        dataset.add(datasetSource);
-
-        NodeList inputGranules = (NodeList) xpath.evaluate(IsoMendsXPath.GRANULE_INPUT, doc, XPathConstants.NODESET);
-        for (int i = 0; i < inputGranules.getLength(); i++) {
-            ((IsoGranule) granule).addInputGranule(inputGranules.item(i).getTextContent().trim());
-        }
-
-        ((IsoGranule) granule).setPGEVersionClass(xpath.evaluate(IsoMendsXPath.PGE_VERSION_CLASS, doc));
+		((IsoGranule) granule).setPGEVersionClass(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.PGE_VERSION_CLASS, "IsoMendsXPath.PGE_VERSION_CLASS"));
 		// Process ISO cycle, pass and tile
-		String  cyclePassTileSceneStr =StringUtils.trim(xpath.evaluate(IsoMendsXPath.CYCLE_PASS_TILE_SCENE, doc));
+		String  cyclePassTileSceneStr =StringUtils.trim(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.CYCLE_PASS_TILE_SCENE, "IsoMendsXPath.CYCLE_PASS_TILE_SCENE"));
 		if(!StringUtils.isBlank(cyclePassTileSceneStr)) {
 			try {
 				createIsoCyclePassTile(cyclePassTileSceneStr);
@@ -530,29 +540,30 @@ public class MetadataFilesToEcho {
 			additionalAttributes.remove("publishAll");
 			((IsoGranule) granule).setDynamicAttributeNameMapping(additionalAttributes);
 		}
-		
-					
-        String mgrsId = xpath.evaluate(IsoMendsXPath.MGRS_ID, doc);
-        if (mgrsId != null && !mgrsId.equals("")) {
-            // If MGRS_ID field is not null, set as additional attribute
-            AdditionalAttributeType mgrsAttr = new AdditionalAttributeType("MGRS_TILE_ID", Collections.singletonList(mgrsId));
-            
-            List<AdditionalAttributeType> additionalAttributeTypes = ((IsoGranule) granule).getAdditionalAttributeTypes();
-            if (additionalAttributeTypes == null) {
-                additionalAttributeTypes = Collections.singletonList(mgrsAttr);
-            } else {
-                additionalAttributeTypes.add(mgrsAttr);
-            }
-            
-            JSONObject dynamicAttributeNameMapping = ((IsoGranule) granule).getDynamicAttributeNameMapping();
-            if (dynamicAttributeNameMapping == null) {
-                ((IsoGranule) granule).setDynamicAttributeNameMapping(additionalAttributes);
-            } else {
-                dynamicAttributeNameMapping.put("MGRS_TILE_ID", Collections.singletonList(mgrsId));
-            }
-            ((IsoGranule) granule).setAdditionalAttributeTypes(additionalAttributeTypes);
-            ((IsoGranule) granule).setDynamicAttributeNameMapping(dynamicAttributeNameMapping);
-        }
+
+
+		String mgrsId = MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.MGRS_ID, "IsoMendsXPath.MGRS_ID");
+		if (mgrsId != null && !mgrsId.equals("")) {
+			// If MGRS_ID field is not null, set as additional attribute
+			AdditionalAttributeType mgrsAttr = new AdditionalAttributeType();
+			mgrsAttr.setName("MGRS_TILE_ID");mgrsAttr.setValues( Collections.singletonList(mgrsId));
+
+			List<AdditionalAttributeType> additionalAttributeTypes = ((IsoGranule) granule).getAdditionalAttributeTypes();
+			if (additionalAttributeTypes == null) {
+				additionalAttributeTypes = Collections.singletonList(mgrsAttr);
+			} else {
+				additionalAttributeTypes.add(mgrsAttr);
+			}
+
+			JSONObject dynamicAttributeNameMapping = ((IsoGranule) granule).getDynamicAttributeNameMapping();
+			if (dynamicAttributeNameMapping == null) {
+				((IsoGranule) granule).setDynamicAttributeNameMapping(additionalAttributes);
+			} else {
+				dynamicAttributeNameMapping.put("MGRS_TILE_ID", Collections.singletonList(mgrsId));
+			}
+			((IsoGranule) granule).setAdditionalAttributeTypes(additionalAttributeTypes);
+			((IsoGranule) granule).setDynamicAttributeNameMapping(dynamicAttributeNameMapping);
+		}
 
 		return  ((IsoGranule) granule);
 	}
@@ -661,8 +672,11 @@ public class MetadataFilesToEcho {
 		 * This block of code supports multiple cycles.  In theory, during cycle transition, it is possible
 		 * a granule consists 2 cycles.  However, UMMG json schema does support one at the time.
 		 */
+		ArrayList<String> basinIdStrs = new ArrayList<>();
 		for(String cps : cyclePassStrs) {
 			try {
+				// Extract BasinID and the store into IsoGranule object
+				((IsoGranule)granule).setBasinIds(getBasinIds(cps));
 				trackType = createTrackType(cps, p_cycle);
 			} catch (Exception e) {
 				AdapterLogger.LogError(this.className + " Creating TrackType with exception: " + UMMUtils.getStackTraceAsString(e));
@@ -671,14 +685,32 @@ public class MetadataFilesToEcho {
 			UmmgPojoFactory ummgPojoFactory = UmmgPojoFactory.getInstance();
 			additionalAttributeTypes=
 					ummgPojoFactory.trackTypeToAdditionalAttributeTypes(trackType);
+			// Join array lists
+			additionalAttributeTypes.addAll(
+				ummgPojoFactory.basinIdsToAdditionalAttributeTypes(((IsoGranule)granule).getBasinIds()));
+
 		}
 		// It is possible after all the above processing, cycle is present but passes is not (no pass in passes array)
 		// That is, we shall NOT create trackType at all.  Otherwise, CMR will throw validation error
-		if (trackType.getCycle()!=null && trackType.getPasses()!=null && trackType.getPasses().size() >0) {
+		// from UMMG Schema 1.6.5, TrackType contains Cycle and Passes and ONLY Cycle is required
+		if (trackType.getCycle()!=null) {
 			((IsoGranule) granule).setTrackType(trackType);
 			((IsoGranule) granule).setAdditionalAttributeTypes(additionalAttributeTypes);
 		}
 		return (IsoGranule)granule;
+	}
+
+	public List<String> getBasinIds(String cyclePassStr) {
+		Pattern p_basinId = Pattern.compile("\\s*BASINID\\s*:\\s*\\d+\\s*?");
+		Matcher m_basinId = p_basinId.matcher(cyclePassStr);
+		ArrayList<String>basinIdStrs = new ArrayList<>();
+		while(m_basinId.find()) {
+			String basinIdStr = m_basinId.group();
+			AdapterLogger.LogInfo("BasinId:" + basinIdStr);
+			String tokens[] = basinIdStr.split(":");
+			basinIdStrs.add(StringUtils.trim(tokens[1]));
+		}
+		return basinIdStrs;
 	}
 
 	public TrackType createTrackType(String cyclePassTileStr, Pattern p_cycle) {
@@ -712,16 +744,18 @@ public class MetadataFilesToEcho {
 					StringUtils.replace(passTilesStr,"[",""),"]","");
 			passTilesStr = passTilesStr.replaceAll("TILES\\s*:\\s*?", "");
 			String[] passTiles = StringUtils.split(passTilesStr, ",");
-			String passStr = StringUtils.trim(passTiles[0]);
-			trackPassTileType.setPass(NumberUtils.createInteger(UMMUtils.removeStrLeadingZeros(passStr)));
-			try {
-				List<String> tiles = getTiles(StringUtils.trim(passTiles[1]));
-				trackPassTileType.setTiles(tiles);
-			} catch (Exception e) {
-				AdapterLogger.LogWarning(this.className + " Continue processing after tile processing failed with " +
-						"exception: " + UMMUtils.getStackTraceAsString(e));
+			if(!StringUtils.isEmpty(passTilesStr) && passTiles.length >0) {
+				String passStr = StringUtils.trim(passTiles[0]);
+				trackPassTileType.setPass(NumberUtils.createInteger(UMMUtils.removeStrLeadingZeros(passStr)));
+				try {
+					List<String> tiles = getTiles(StringUtils.trim(passTiles[1]));
+					trackPassTileType.setTiles(tiles);
+				} catch (Exception e) {
+					AdapterLogger.LogWarning(this.className + " Continue processing after tile processing failed with " +
+							"exception: " + UMMUtils.getStackTraceAsString(e));
+				}
+				trackPassTileTypes.add(trackPassTileType);
 			}
-			trackPassTileTypes.add(trackPassTileType);
 		}
 		trackType.setPasses(trackPassTileTypes);
 		return trackType;
@@ -788,6 +822,7 @@ public class MetadataFilesToEcho {
 
         ((IsoGranule) granule).setSwotTrack(xpath.evaluate(IsoSmapXPath.SWOT_TRACK, doc));
 		((IsoGranule) granule).setPolygon(xpath.evaluate(IsoSmapXPath.POLYGON, doc));
+		((IsoGranule) granule).setOrientation(CGAlgorithms.CLOCKWISE);
 
         Source source = new Source();
         source.setSourceShortName(xpath.evaluate(IsoSmapXPath.PLATFORM, doc));
@@ -829,7 +864,7 @@ public class MetadataFilesToEcho {
 		// No spatial extent exists for SWOT L0 data so set as global
 		setGranuleBoundingBox(90.0, -90.0, 180.0, -180.0);
 	}
-    
+
     /**
      * Parse metadata from SWOT Cal/Val XML file
      * @param file path to SWOT Cal/Val XML file on local file system
@@ -840,19 +875,19 @@ public class MetadataFilesToEcho {
         docBuilderFactory.setNamespaceAware(true);
         DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
         Document doc = docBuilder.parse(new File(file));
-    
+
         XPath xpath = XPathFactory.newInstance().newXPath();
         xpath.setNamespaceContext(new NamespaceResolver(doc));
-    
+
         String startTime = xpath.evaluate(SwotCalValXmlPath.BEGINNING_DATE_TIME, doc);
         String stopTime = xpath.evaluate(SwotCalValXmlPath.ENDING_DATE_TIME, doc);
         String createTime = xpath.evaluate(SwotCalValXmlPath.CREATION_DATE_TIME, doc);
-    
+
         String north = xpath.evaluate(SwotCalValXmlPath.NORTH_BOUNDING_COORDINATE, doc);
         String south = xpath.evaluate(SwotCalValXmlPath.SOUTH_BOUNDING_COORDINATE, doc);
         String east = xpath.evaluate(SwotCalValXmlPath.EAST_BOUNDING_COORDINATE, doc);
         String west = xpath.evaluate(SwotCalValXmlPath.WEST_BOUNDING_COORDINATE, doc);
-    
+
         try {
             granule.setStartTime(DatatypeConverter.parseDateTime(startTime).getTime());
             granule.setStopTime(DatatypeConverter.parseDateTime(stopTime).getTime());
@@ -861,7 +896,7 @@ public class MetadataFilesToEcho {
             throw new IllegalArgumentException(String.format("Failed to parse datetime start=%s stop=%s create=%s",
                     startTime, stopTime, createTime), exception);
         }
-    
+
         try {
             setGranuleBoundingBox(Double.parseDouble(north),
                     Double.parseDouble(south),
@@ -916,8 +951,8 @@ public class MetadataFilesToEcho {
 		on the other hand, any exceptions caused by cycle or pass should be thrown all the way up and break the ingestion
 		 */
 		try {
-			if (NumberUtils.createInteger(StringUtils.trim(cycleStr)) == null ||
-					NumberUtils.createInteger(StringUtils.trim(passStr)) == null) {
+			if (NumberUtils.createInteger(UMMUtils.removeStrLeadingZeros(StringUtils.trim(cycleStr))) == null ||
+					NumberUtils.createInteger(UMMUtils.removeStrLeadingZeros(StringUtils.trim(passStr))) == null) {
 				return null;
 			}
 		} catch(NumberFormatException nfe) { // if either cycle or pass are un-processable, then return null
@@ -988,6 +1023,7 @@ public class MetadataFilesToEcho {
 			}
 		} catch (XPathExpressionException e) {
 			// Ignore if unable to parse for footprint since it isn't required for ingest
+			AdapterLogger.LogWarning(this.className + " Not able to extract footprint from SentinelManifest: " + e);
 		}
 
 		String cycle = StringUtils.trim(xpath.evaluate(ManifestXPath.CYCLE, doc));
@@ -1042,7 +1078,7 @@ public class MetadataFilesToEcho {
 	public JSONObject createJson()
 			throws ParseException, IOException, URISyntaxException {
 		granule.setIngestTime(new Date());
-		UMMGranuleFile granuleFile = new UMMGranuleFile(granule, dataset, rangeIs360);
+		UMMGranuleFile granuleFile = new UMMGranuleFile(granule, dataset, rangeIs360, this.isoXMLSpatialTypeEnumHashSet);
 		JSONObject granuleJson = granuleFile.defineGranule();
 		return granuleJson;
 	}
@@ -1051,7 +1087,6 @@ public class MetadataFilesToEcho {
 			throws IOException, ParseException, URISyntaxException{
 		JSONObject granuleJson = createJson();
         JSONUtils.cleanJSON(granuleJson);
-		granuleJson = JSONUtils.sortRelatedUrls(granuleJson);
         FileUtils.writeStringToFile(new File(outputLocation), granuleJson.toJSONString());
 	}
 
