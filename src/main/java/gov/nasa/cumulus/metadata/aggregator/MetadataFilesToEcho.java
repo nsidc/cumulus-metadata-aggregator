@@ -808,6 +808,24 @@ public class MetadataFilesToEcho {
             AdapterLogger.LogInfo("Couldn't find orbit information from " + IsoSmapXPath.OrbitCalculatedSpatialDomains);
         }
 
+		String boundingBoxInformation = xpath.evaluate(IsoSmapXPath.BOUNDING_BOX, doc);
+		if (boundingBoxInformation != null) {
+			String north = xpath.evaluate(IsoSmapXPath.NORTH_BOUNDING_COORDINATE, doc);
+			String south = xpath.evaluate(IsoSmapXPath.SOUTH_BOUNDING_COORDINATE, doc);
+			String east = xpath.evaluate(IsoSmapXPath.EAST_BOUNDING_COORDINATE, doc);
+			String west = xpath.evaluate(IsoSmapXPath.WEST_BOUNDING_COORDINATE, doc);
+
+			try {
+				setGranuleBoundingBox(Double.parseDouble(north),
+                                      Double.parseDouble(south),
+                                      Double.parseDouble(east),
+                                      Double.parseDouble(west));
+		    } catch (NullPointerException | NumberFormatException exception) {
+				throw new IllegalArgumentException(String.format("Failed to parse bbox N=%s S=%s E=%s W=%s",
+						                                         north, south, east, west), exception);
+			}
+		}
+
         ((IsoGranule) granule).setProducerGranuleId(xpath.evaluate(IsoSmapXPath.PRODUCER_GRANULE_ID, doc));
         ((IsoGranule) granule).setCrid(xpath.evaluate(IsoSmapXPath.CRID, doc));
         ((IsoGranule) granule).setParameterName("Parameter name placeholder");
