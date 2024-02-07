@@ -717,13 +717,29 @@ public class UMMGranuleFile {
             Polygon originalPolygon = geometryFactory.createPolygon(coordinates.stream().toArray(Coordinate[]::new));
             AdapterLogger.LogInfo(this.className + " original polygon:" + UMMUtils.getWKT(originalPolygon));
             AdapterLogger.LogInfo(this.className + " original polygon valid? " + originalPolygon.isValid());
-            List<List<Coordinate>> splittedGeos = UMMUtils.split(coordinates);
-            int dividedSize = splittedGeos.size();
+
+            boolean polygonIsValid = originalPolygon.isValid();
+
+            List<List<Coordinate>> splittedGeos = null;
+            int dividedSize = 0;
+
+            // For SMAP, antimeridian crossings should be ignored and the coordinates used as is, aside from
+            // changing orientation to counterclockwise where necessary. Force polygon to always be valid and
+            // set the dividedSize to 1 in order to select the proper code path (i.e. single polygon).
+            if (this.granule.getIsoType() == IsoType.SMAP) {
+                dividedSize = 1;
+                polygonIsValid = true;
+                AdapterLogger.LogInfo(this.className + " ignoring SMAP antimeridian crossing");
+            } else {
+                splittedGeos = UMMUtils.split(coordinates);
+                dividedSize = splittedGeos.size();
+            }
+
             AdapterLogger.LogInfo(this.className + " original polygon divided to no of geos:" + dividedSize);
             if (UMMUtils.isGlobalBoundingBox(coordinates)) {
                 AdapterLogger.LogError(this.className + " Original polygon representing a global bounding box ....");
                 geometry = addGlobalBoundingBox2Geometry(geometry);
-            } else if (dividedSize == 1 && !originalPolygon.isValid()) {
+            } else if (dividedSize == 1 && !polygonIsValid) {
                 // check the original polygon is valid or not ONLY when it is NOT cross dateline.
                 AdapterLogger.LogError(this.className + " Original polygon is not valid. Creating global bounding box ....");
                 geometry = addGlobalBoundingBox2Geometry(geometry);
