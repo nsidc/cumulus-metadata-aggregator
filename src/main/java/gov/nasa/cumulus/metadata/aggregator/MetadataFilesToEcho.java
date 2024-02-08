@@ -809,7 +809,7 @@ public class MetadataFilesToEcho {
         }
 
 		String boundingBoxInformation = xpath.evaluate(IsoSmapXPath.BOUNDING_BOX, doc);
-		if (boundingBoxInformation != null) {
+		if (!boundingBoxInformation.trim().isEmpty()) {
 			String north = xpath.evaluate(IsoSmapXPath.NORTH_BOUNDING_COORDINATE, doc);
 			String south = xpath.evaluate(IsoSmapXPath.SOUTH_BOUNDING_COORDINATE, doc);
 			String east = xpath.evaluate(IsoSmapXPath.EAST_BOUNDING_COORDINATE, doc);
