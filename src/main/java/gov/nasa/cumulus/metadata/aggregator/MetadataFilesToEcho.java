@@ -838,11 +838,21 @@ public class MetadataFilesToEcho {
 
         Source source = new Source();
         source.setSourceShortName(xpath.evaluate(IsoSmapXPath.PLATFORM, doc));
+		Sensor sensor = new Sensor();
+		sensor.setSensorShortName(xpath.evaluate(IsoSmapXPath.INSTRUMENT, doc));
 
         DatasetSource datasetSource = new DatasetSource();
         DatasetSource.DatasetSourcePK datasetSourcePK = new DatasetSource.DatasetSourcePK();
         datasetSourcePK.setSource(source);
         datasetSource.setDatasetSourcePK(datasetSourcePK);
+
+		datasetSourcePK.setSource(source);
+
+	    if (!sensor.getSensorShortName().trim().isEmpty()) {
+			datasetSourcePK.setSensor(sensor);
+		}
+
+		datasetSource.setDatasetSourcePK(datasetSourcePK);
 
         dataset.add(datasetSource);
 

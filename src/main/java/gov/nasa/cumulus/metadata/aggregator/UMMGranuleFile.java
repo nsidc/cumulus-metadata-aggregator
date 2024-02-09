@@ -883,11 +883,13 @@ public class UMMGranuleFile {
             JSONObject platform = new JSONObject();
             platform.put("ShortName", datasetSource.getDatasetSourcePK().getSource().getSourceShortName());
 
-            JSONArray instruments = new JSONArray();
-            JSONObject instrument = new JSONObject();
-            instrument.put("ShortName", datasetSource.getDatasetSourcePK().getSensor().getSensorShortName());
-            instruments.add(instrument);
-            platform.put("Instruments", instruments);
+            if (!datasetSource.getDatasetSourcePK().getSensor().getSensorShortName().trim().isEmpty()) {
+                JSONArray instruments = new JSONArray();
+                JSONObject instrument = new JSONObject();
+                instrument.put("ShortName", datasetSource.getDatasetSourcePK().getSensor().getSensorShortName());
+                instruments.add(instrument);
+                platform.put("Instruments", instruments);
+            }
 
             platforms.add(platform);
         }
