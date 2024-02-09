@@ -304,12 +304,15 @@ public class CMRLambdaRestClient extends CMRRestClient {
             throws URISyntaxException, IOException, ParseException {
         try {
 
+            AdapterLogger.LogInfo(this.className + " strUMMG is: "+ strUMMG);
             URIBuilder uriBuilder = new URIBuilder(this.echoHost);
             String validateUMMGUri = uriBuilder.setPath(uriBuilder.getPath() + "/ingest/providers/"
                     + provider +"/validate/granule/" + granuleId)
                     .build().normalize().toString();
+            AdapterLogger.LogInfo(this.className + " validateUMMGUri is: "+ validateUMMGUri);
             HttpEntity httpEntity = new StringEntity(strUMMG, "utf-8");
             HttpResponse httpResponse = send(validateUMMGUri, httpEntity);
+            AdapterLogger.LogInfo(this.className + " httpResponse is: "+ httpResponse);
             return httpResponse;
         } catch (URISyntaxException | IOException | ParseException e) {
             throw  e;
