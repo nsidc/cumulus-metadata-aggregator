@@ -13,9 +13,9 @@ public final class IsoSmapXPath extends IsoXPath {
 
     public static final String BOUNDING_BOX = BASE + "/gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:geographicElement/gmd:EX_GeographicBoundingBox";
     public static final String WEST_BOUNDING_COORDINATE = BASE + "/gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:geographicElement/gmd:EX_GeographicBoundingBox/gmd:westBoundLongitude/gco:Decimal";
-    public static final String SOUTH_BOUNDING_COORDINATE = BASE + "/gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:geographicElement/gmd:EX_GeographicBoundingBox/gmd:southBoundLongitude/gco:Decimal";
+    public static final String SOUTH_BOUNDING_COORDINATE = BASE + "/gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:geographicElement/gmd:EX_GeographicBoundingBox/gmd:southBoundLatitude/gco:Decimal";
     public static final String EAST_BOUNDING_COORDINATE = BASE + "/gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:geographicElement/gmd:EX_GeographicBoundingBox/gmd:eastBoundLongitude/gco:Decimal";
-    public static final String NORTH_BOUNDING_COORDINATE = BASE + "/gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:geographicElement/gmd:EX_GeographicBoundingBox/gmd:northBoundLongitude/gco:Decimal";
+    public static final String NORTH_BOUNDING_COORDINATE = BASE + "/gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:geographicElement/gmd:EX_GeographicBoundingBox/gmd:northBoundLatitude/gco:Decimal";
 
     public static final String PRODUCER_GRANULE_ID = BASE + CI_CITATION + "/gmd:title/gmx:FileName";
     public static final String CRID = BASE + CI_CITATION + "/gmd:identifier[0]/gmd:MD_Identifier/gmd:code/gco:CharacterString";
