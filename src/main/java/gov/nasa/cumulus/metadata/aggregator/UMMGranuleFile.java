@@ -754,7 +754,9 @@ public class UMMGranuleFile {
                     // use the original coordinate array instead of splittedGeos.get(0)
                     // for the original coordinate array is "un-damaged
                     polygons.add(coordinates);
-                    geometry = addPolygons(geometry, polygons);
+
+                    boolean addInvalidPolygons = (this.granule.getIsoType() == IsoType.SMAP);
+                    geometry = addPolygons(geometry, polygons, addInvalidPolygons);
                 } else if (dividedSize == 2) {
                     // dont know how to process. Create global bounding box
                     AdapterLogger.LogError(this.className + " split divided to more than 2 geos. Creating global bounding box");
@@ -795,6 +797,10 @@ public class UMMGranuleFile {
     }
 
     public JSONObject addPolygons(JSONObject geometry, ArrayList<ArrayList<Coordinate>> inputPolygons) {
+        return addPolygons(geometry, inputPolygons, false);
+    }
+
+    public JSONObject addPolygons(JSONObject geometry, ArrayList<ArrayList<Coordinate>> inputPolygons, boolean addInvalid) {
         JSONArray polygons = new JSONArray();
         geometry.put("GPolygons", polygons);
         GeometryFactory geometryFactory = new GeometryFactory();
@@ -812,7 +818,7 @@ public class UMMGranuleFile {
                     );
 
             // valid polygon by vividsolution again
-            if(polygon.isValid()) {
+            if(polygon.isValid() || addInvalid) {
                 JSONObject gPolygon = new JSONObject();
                 JSONObject boundary = new JSONObject();
                 gPolygon.put("Boundary", boundary);
