@@ -250,6 +250,8 @@ public class UMMGranuleFile {
                     }
                 }
             }
+
+            throw new RuntimeException("CMR validation failed");
         }
         // if we appended fake relatedUrl, then remove it.
         granuleJson = shouldAppendRelatedUrl? removeAllRelatedUrls(granuleJson):granuleJson;
