@@ -188,7 +188,9 @@ public class UMMGranuleFile {
             }
 
             // Populate Platforms
-            granuleJson.put("Platforms", exportPlatform());
+            if (granule.getIsoType() != IsoType.SMAP) {
+                granuleJson.put("Platforms", exportPlatform());
+            }
 
             // Export input granules
             if (!((IsoGranule) granule).getInputGranules().isEmpty()) {
