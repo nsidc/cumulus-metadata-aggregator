@@ -127,7 +127,6 @@ public class MetadataAggregatorLambda implements ITask {
 						Paths.get("/tmp", filename).toString());
 				objectList.add(f);
 			} else if (filename.endsWith(".cmr.json")) {
-				AdapterLogger.LogDebug(this.className + " " + file.get("key"))
 				objectList.add(f);
 			} else if (isoRegex != null && filename.matches(isoRegex)) {
 				AdapterLogger.LogDebug(this.className + " download  isoRegrex from bucket:" + file.get("bucket") +
@@ -150,7 +149,6 @@ public class MetadataAggregatorLambda implements ITask {
 
 		//remove the fp and mp files from the array
 		for (Object o : objectList) {
-			AdapterLogger.LogDebug("Removing file.")
 			files.remove(o);
 			//TODO Delete the file from it's place in S3.
 			//TODO remove mp,fp files from CMR
