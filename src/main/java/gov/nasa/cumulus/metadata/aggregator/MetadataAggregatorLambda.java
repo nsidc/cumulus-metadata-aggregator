@@ -114,6 +114,7 @@ public class MetadataAggregatorLambda implements ITask {
 			String filename = (String) file.get("fileName");
 			String key = (String) file.get("key");
 
+			AdapterLogger.LogDebug(this.className + " inspecting:" + file.get("key"));
 			//String filename = file.getName();
 			if (filename.endsWith(".mp")) {
 				mpFileBucket = (String) file.get("bucket");
@@ -128,6 +129,7 @@ public class MetadataAggregatorLambda implements ITask {
 				objectList.add(f);
 			} else if (filename.endsWith(".cmr.json")) {
 				// This file is a UMM-G file - add it to the objectList so it's removed from the files list
+				AdapterLogger.LogDebug(this.className + " adding the following umm-g file to be removed:" + file.get("key"));
 				objectList.add(f);
 			} else if (isoRegex != null && filename.matches(isoRegex)) {
 				AdapterLogger.LogDebug(this.className + " download isoRegrex from bucket:" + file.get("bucket") +
@@ -150,7 +152,9 @@ public class MetadataAggregatorLambda implements ITask {
 
 		//remove the fp and mp files from the array
 		for (Object o : objectList) {
+			JSONObject file = (JSONObject) o;
 			files.remove(o);
+			AdapterLogger.LogDebug(this.className + " remove " + file.get("key"));
 			//TODO Delete the file from it's place in S3.
 			//TODO remove mp,fp files from CMR
 		}
