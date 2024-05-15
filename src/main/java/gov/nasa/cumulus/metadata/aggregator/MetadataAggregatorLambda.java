@@ -126,6 +126,9 @@ public class MetadataAggregatorLambda implements ITask {
 				footprint = s3Utils.download(region, (String) file.get("bucket"), key,
 						Paths.get("/tmp", filename).toString());
 				objectList.add(f);
+			} else if (filename.endsWith(".cmr.json")) {
+				// This file is a UMM-G file - add it to the objectList so it's removed from the files list
+				objectList.add(f);
 			} else if (isoRegex != null && filename.matches(isoRegex)) {
 				AdapterLogger.LogDebug(this.className + " download isoRegrex from bucket:" + file.get("bucket") +
 						"  key" + file.get("key") + " to:" + Paths.get("/tmp", filename));
