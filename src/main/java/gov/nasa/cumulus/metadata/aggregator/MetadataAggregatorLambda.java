@@ -127,7 +127,7 @@ public class MetadataAggregatorLambda implements ITask {
 						Paths.get("/tmp", filename).toString());
 				objectList.add(f);
 			} else if (isoRegex != null && filename.matches(isoRegex)) {
-				AdapterLogger.LogDebug(this.className + " download isoRegrex from bucket:" + file.get("bucket") +
+				AdapterLogger.LogDebug(this.className + " download  isoRegrex from bucket:" + file.get("bucket") +
 						"  key" + file.get("key") + " to:" + Paths.get("/tmp", filename));
 				iso = s3Utils.download(region, (String) file.get("bucket"), key,
 						Paths.get("/tmp", filename).toString());
