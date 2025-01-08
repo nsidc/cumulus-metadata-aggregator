@@ -114,6 +114,13 @@ public class MetadataAggregatorLambda implements ITask {
 			String filename = (String) file.get("fileName");
 			String key = (String) file.get("key");
 
+			if (filename.endsWith(".dmrpp")) {
+				AdapterLogger.LogDebug(this.className + " found a DMRPP file...\n" +
+						"BUCKET: " + file.get("bucket") + "\n" +
+						"KEY:    " + file.get("key") + "\n" +
+						"FILE:   " + filename);
+			}
+
 			//String filename = file.getName();
 			if (filename.endsWith(".mp")) {
 				mpFileBucket = (String) file.get("bucket");
