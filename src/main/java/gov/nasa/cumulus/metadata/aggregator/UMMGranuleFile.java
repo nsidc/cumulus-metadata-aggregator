@@ -334,6 +334,9 @@ public class UMMGranuleFile {
 
         Set<GranuleArchive> archiveSet = granule.getGranuleArchiveSet();
         for (GranuleArchive archive : archiveSet) {
+            if (archive.getName().endsWith(".dmrpp")) {
+                continue;
+            }
             JSONObject archiveJson = new JSONObject();
             archiveJson.put("Name", archive.getName());
             AdapterLogger.LogInfo(this.className + " Granule Archive Name: " + archive.getName());
