@@ -11,6 +11,12 @@ public final class IsoSmapXPath extends IsoXPath {
     public static final String BEGINNING_DATE_TIME = BASE + "/gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:temporalElement/gmd:EX_TemporalExtent/gmd:extent/gml:TimePeriod/gml:beginPosition";
     public static final String ENDING_DATE_TIME = BASE + "/gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:temporalElement/gmd:EX_TemporalExtent/gmd:extent/gml:TimePeriod/gml:endPosition";
 
+    public static final String BOUNDING_BOX = BASE + "/gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:geographicElement/gmd:EX_GeographicBoundingBox";
+    public static final String WEST_BOUNDING_COORDINATE = BASE + "/gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:geographicElement/gmd:EX_GeographicBoundingBox/gmd:westBoundLongitude/gco:Decimal";
+    public static final String SOUTH_BOUNDING_COORDINATE = BASE + "/gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:geographicElement/gmd:EX_GeographicBoundingBox/gmd:southBoundLatitude/gco:Decimal";
+    public static final String EAST_BOUNDING_COORDINATE = BASE + "/gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:geographicElement/gmd:EX_GeographicBoundingBox/gmd:eastBoundLongitude/gco:Decimal";
+    public static final String NORTH_BOUNDING_COORDINATE = BASE + "/gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:geographicElement/gmd:EX_GeographicBoundingBox/gmd:northBoundLatitude/gco:Decimal";
+
     public static final String PRODUCER_GRANULE_ID = BASE + CI_CITATION + "/gmd:title/gmx:FileName";
     public static final String CRID = BASE + CI_CITATION + "/gmd:identifier[0]/gmd:MD_Identifier/gmd:code/gco:CharacterString";
     public static final String IDENTIFIERS = BASE + CI_CITATION + "/gmd:identifier[1]/gmd:MD_Identifier/gmd:code/gco:CharacterString";
@@ -23,4 +29,7 @@ public final class IsoSmapXPath extends IsoXPath {
 
     public static final String GRANULE_INPUT = BASE + CI_CITATION + "/gmd:title/gmx:FileName";
     public static final String POLYGON = "/gmd:DS_Series/gmd:composedOf/gmd:DS_DataSet/gmd:has/gmi:MI_Metadata/gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:geographicElement/gmd:EX_BoundingPolygon/gmd:polygon/gml:Polygon/gml:exterior/gml:LinearRing/gml:posList";
+
+    public static String PLATFORM = BASE + "/gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:platform/eos:EOS_Platform/gmi:identifier/gmd:MD_Identifier/gmd:code/gco:CharacterString";
+    public static String INSTRUMENT = BASE + "/gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:platform/eos:EOS_Platform/gmi:instrument/eos:EOS_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:code/gco:CharacterString";
 }

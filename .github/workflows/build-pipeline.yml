@@ -24,7 +24,7 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'adopt'
-          java-version: '8.0.232'
+          java-version: '11.0.6'
       - uses: gradle/gradle-build-action@v1
         with:
           gradle-version: 8.0.1
@@ -144,7 +144,7 @@ jobs:
           github.ref == 'refs/heads/master'  ||
           startsWith(github.ref, 'refs/heads/release')
         run: |
-          git config --global user.name 'podaac-cloud-IandA'
-          git config --global user.email 'podaac-cloud-IandA@jpl.nasa.gov'
+          git config --global user.name 'NSIDC'
+          git config --global user.email 'jim.cole@colorado.edu'
           git commit -m "/version ${{ env.software_version }} [skip actions]" pom.xml
           git push

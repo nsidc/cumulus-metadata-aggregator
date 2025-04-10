@@ -12,6 +12,7 @@ import com.vividsolutions.jts.io.WKTWriter;
 import gov.nasa.podaac.inventory.model.Dataset;
 import gov.nasa.podaac.inventory.model.DatasetCitation;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SerializationUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -222,6 +223,34 @@ public class UMMUtils {
         }
     }
 
+
+    /**
+     * Shift the polygon, if necessary, to move it into Cartesian space when there
+     * is an antimeridian crossing.
+     * @param coordinates the polygon coordinates
+     * @return the shifted polygon if there is an antimeridian cross, else a copy
+     *         of the original polygon
+     */
+    public static Coordinate[] shiftPolygon(final Coordinate[] coordinates) {
+        Coordinate[] shiftedCoordinates = SerializationUtils.clone(coordinates);
+
+        for (int i = 1; i < shiftedCoordinates.length; ++i) {
+            Coordinate coordinate = shiftedCoordinates[i];
+            Coordinate previousCoordinate = shiftedCoordinates[i - 1];
+
+            double deltaLongitude = coordinate.x - previousCoordinate.x;
+
+            if (Math.abs(deltaLongitude) > 180) {
+                double direction = deltaLongitude / Math.abs(deltaLongitude);
+                double crossingShift = direction * 360;
+                coordinate.x = coordinate.x - crossingShift;
+            }
+        }
+
+        return shiftedCoordinates;
+    }
+
+
     /**
      * This function is to take a counterclockwise or clockwise sequence indicator and translate the input coordination
      * array based on the desired orientation.
@@ -234,17 +263,19 @@ public class UMMUtils {
         if (coord.length == 0) {
             return coord;
         }
-        final int orientation = CGAlgorithms.isCCW(coord) ? CGAlgorithms.COUNTERCLOCKWISE
+
+        Coordinate[] shiftedPolygon = shiftPolygon(coord);
+        final int orientation = CGAlgorithms.isCCW(shiftedPolygon) ? CGAlgorithms.COUNTERCLOCKWISE
                 : CGAlgorithms.CLOCKWISE;
 
         if (orientation != desiredOrientation) {
-            final Coordinate[] reverse = coord.clone();
-            reverse(reverse);
-
-            return reverse;
+            reverse(coord);
         }
+
         return coord;
     }
+
+
     public static ArrayList<Coordinate> eliminateDuplicates(ArrayList<Coordinate> inputCoordinates) {
         int size = inputCoordinates.size();
         ArrayList<Coordinate> removeCandidateCoordinates = new ArrayList<>();

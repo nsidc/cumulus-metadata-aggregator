@@ -188,7 +188,9 @@ public class UMMGranuleFile {
             }
 
             // Populate Platforms
-            granuleJson.put("Platforms", exportPlatform());
+            if (granule.getIsoType() != IsoType.SMAP) {
+                granuleJson.put("Platforms", exportPlatform());
+            }
 
             // Export input granules
             if (!((IsoGranule) granule).getInputGranules().isEmpty()) {
@@ -250,6 +252,8 @@ public class UMMGranuleFile {
                     }
                 }
             }
+
+            throw new RuntimeException("CMR validation failed");
         }
         // if we appended fake relatedUrl, then remove it.
         granuleJson = shouldAppendRelatedUrl? removeAllRelatedUrls(granuleJson):granuleJson;
@@ -330,6 +334,9 @@ public class UMMGranuleFile {
 
         Set<GranuleArchive> archiveSet = granule.getGranuleArchiveSet();
         for (GranuleArchive archive : archiveSet) {
+            if (archive.getName().endsWith(".dmrpp")) {
+                continue;
+            }
             JSONObject archiveJson = new JSONObject();
             archiveJson.put("Name", archive.getName());
             AdapterLogger.LogInfo(this.className + " Granule Archive Name: " + archive.getName());
@@ -420,7 +427,8 @@ public class UMMGranuleFile {
      */
     private boolean shouldAddBBx(Granule granule) {
         boolean shouldAddBBx = false;
-        if(granule !=null && granule instanceof  gov.nasa.cumulus.metadata.aggregator.UMMGranule) {
+
+        if(granule !=null && granule.getIsoType() == null) {
             shouldAddBBx = true;
         }
         // if the granule object is IsoGranule type and it is SMAP mission, then we check if polygon was added.
@@ -430,6 +438,7 @@ public class UMMGranuleFile {
         &&  StringUtils.isNotEmpty(((IsoGranule) granule).getPolygon())) {
                 shouldAddBBx = false;
         }
+        AdapterLogger.LogInfo(this.className + " shouldAddBBx:" + shouldAddBBx);
         return shouldAddBBx;
     }
 
@@ -453,6 +462,7 @@ public class UMMGranuleFile {
                 AdapterLogger.LogInfo(this.className + " nc.iso.xml footprint processing ... ");
                 this.isLineFormattedPolygon = true;
                 geometry = line2Polygons(geometry,polygon);
+                horizontalSpatialDomain.put("Geometry", geometry);
             }
             if(this.isoXMLSpatialTypeEnumHashSet.contains(MENDsIsoXMLSpatialTypeEnum.ORBIT)) {
                 AdapterLogger.LogDebug(this.className + "UMMGranuleFile.exportSpatial ORBIT Processing");
@@ -478,13 +488,18 @@ public class UMMGranuleFile {
                 isoBBoxAlreadyProcessed = true;
                 horizontalSpatialDomain = this.appendBoundingRectangles(geometry, horizontalSpatialDomain);
             }
-            // Export track
-            if (((IsoGranule) granule).getSwotTrack() != "") {
+            // Export track for isoXML SMAP
+            // look into : IsoSmapXPath.SWOT_TRACK and how we use it to grab and store coordinate string to granule's
+            // swotTrack string.  We also store swotTrack to MENDs granule and IsoXPath.SWOT_TRACK and IsoMendsXPath.CYCLE_PASS_TILE_SCENE
+            // these 2 values are being used to "extrac" cycle pass string from eith MENDs or SMAP. However, smap cycle and pass
+            // are being processed below
+            if (((IsoGranule) granule).getSwotTrack() != "" && granule.getIsoType() == IsoType.SMAP) {
                 JSONObject track = new JSONObject();
                 horizontalSpatialDomain.put("Track", track);
                 Pattern trackPattern = Pattern.compile("Cycle:\\s(.*)\\sPass:\\s(.*)\\sTile:\\s(.*)");
                 Matcher trackMatcher = trackPattern.matcher(((IsoGranule) granule).getSwotTrack());
                 if (trackMatcher.find()) {
+                    AdapterLogger.LogDebug("SWOT track found cycle");
                     track.put("Cycle", Integer.parseInt(trackMatcher.group(1)));
                     JSONArray passes = new JSONArray();
                     track.put("Passes", passes);
@@ -510,17 +525,15 @@ public class UMMGranuleFile {
             }
         } // end of processing IsoGranule
 
+        // following is a large block code to deal with None IsoXML (MENDs or SMAP) bounding box
         // We can only include orbital or bounding-box data, not both
         // if iso Bounding Box already processed in logic above, then don't enter this block
         if (foundOrbitalData == false && !isoBBoxAlreadyProcessed) {
-
             horizontalSpatialDomain.put("Geometry", geometry);
-
             JSONArray boundingRectangles = new JSONArray();
-            geometry.put("BoundingRectangles", boundingRectangles);
 
             double north = 0, south = 0, east = 0, west = 0;
-            if(granule !=null && granule instanceof  gov.nasa.cumulus.metadata.aggregator.UMMGranule) {
+            if(granule !=null &&  granule.getIsoType() == null) {
                 east = ((UMMGranule) granule).getBbxEasternLongitude() != null ?
                         ((UMMGranule) granule).getBbxEasternLongitude() : 0;
                 west = ((UMMGranule) granule).getBbxWesternLongitude() != null?
@@ -565,7 +578,6 @@ public class UMMGranuleFile {
                 // and make sure we turn off the rangeIs360 flag
                 this.rangeIs360 = false;
             }
-
             BigDecimal nrth = new BigDecimal(north);
             BigDecimal sth = new BigDecimal(south);
             nrth = nrth.setScale(3, RoundingMode.HALF_UP);
@@ -609,9 +621,17 @@ public class UMMGranuleFile {
                     }
                 }
             }
-        }
 
-        // Export track if cycle and pass exists
+            if (boundingRectangles.size() > 0) {
+                geometry.put("BoundingRectangles", boundingRectangles);
+            }
+        }
+        // Export TrackType
+        // MENDS  : ISO
+        // Or Non-iso track : such as MODIS_A and Sentinel-6
+        // for instance, iso MENDS and Sentinel-6 and MODIS_A are having TrackType created within MetadataFilesToEcho class
+        // if cycle and pass exists. MENDs is taking adavangate of UMMG generated pojo : TrackType
+        // which is stored within the UMMGranule
         if (granule instanceof UMMGranule) {
             /**
              * Track include cycle and passes(array).
@@ -704,13 +724,29 @@ public class UMMGranuleFile {
             Polygon originalPolygon = geometryFactory.createPolygon(coordinates.stream().toArray(Coordinate[]::new));
             AdapterLogger.LogInfo(this.className + " original polygon:" + UMMUtils.getWKT(originalPolygon));
             AdapterLogger.LogInfo(this.className + " original polygon valid? " + originalPolygon.isValid());
-            List<List<Coordinate>> splittedGeos = UMMUtils.split(coordinates);
-            int dividedSize = splittedGeos.size();
+
+            boolean polygonIsValid = originalPolygon.isValid();
+
+            List<List<Coordinate>> splittedGeos = null;
+            int dividedSize = 0;
+
+            // For SMAP, antimeridian crossings should be ignored and the coordinates used as is, aside from
+            // changing orientation to counterclockwise where necessary. Force polygon to always be valid and
+            // set the dividedSize to 1 in order to select the proper code path (i.e. single polygon).
+            if (this.granule.getIsoType() == IsoType.SMAP) {
+                dividedSize = 1;
+                polygonIsValid = true;
+                AdapterLogger.LogInfo(this.className + " ignoring SMAP antimeridian crossing");
+            } else {
+                splittedGeos = UMMUtils.split(coordinates);
+                dividedSize = splittedGeos.size();
+            }
+
             AdapterLogger.LogInfo(this.className + " original polygon divided to no of geos:" + dividedSize);
             if (UMMUtils.isGlobalBoundingBox(coordinates)) {
                 AdapterLogger.LogError(this.className + " Original polygon representing a global bounding box ....");
                 geometry = addGlobalBoundingBox2Geometry(geometry);
-            } else if (dividedSize == 1 && !originalPolygon.isValid()) {
+            } else if (dividedSize == 1 && !polygonIsValid) {
                 // check the original polygon is valid or not ONLY when it is NOT cross dateline.
                 AdapterLogger.LogError(this.className + " Original polygon is not valid. Creating global bounding box ....");
                 geometry = addGlobalBoundingBox2Geometry(geometry);
@@ -725,7 +761,9 @@ public class UMMGranuleFile {
                     // use the original coordinate array instead of splittedGeos.get(0)
                     // for the original coordinate array is "un-damaged
                     polygons.add(coordinates);
-                    geometry = addPolygons(geometry, polygons);
+
+                    boolean addInvalidPolygons = (this.granule.getIsoType() == IsoType.SMAP);
+                    geometry = addPolygons(geometry, polygons, addInvalidPolygons);
                 } else if (dividedSize == 2) {
                     // dont know how to process. Create global bounding box
                     AdapterLogger.LogError(this.className + " split divided to more than 2 geos. Creating global bounding box");
@@ -766,6 +804,10 @@ public class UMMGranuleFile {
     }
 
     public JSONObject addPolygons(JSONObject geometry, ArrayList<ArrayList<Coordinate>> inputPolygons) {
+        return addPolygons(geometry, inputPolygons, false);
+    }
+
+    public JSONObject addPolygons(JSONObject geometry, ArrayList<ArrayList<Coordinate>> inputPolygons, boolean addInvalid) {
         JSONArray polygons = new JSONArray();
         geometry.put("GPolygons", polygons);
         GeometryFactory geometryFactory = new GeometryFactory();
@@ -783,7 +825,7 @@ public class UMMGranuleFile {
                     );
 
             // valid polygon by vividsolution again
-            if(polygon.isValid()) {
+            if(polygon.isValid() || addInvalid) {
                 JSONObject gPolygon = new JSONObject();
                 JSONObject boundary = new JSONObject();
                 gPolygon.put("Boundary", boundary);
@@ -854,11 +896,14 @@ public class UMMGranuleFile {
             JSONObject platform = new JSONObject();
             platform.put("ShortName", datasetSource.getDatasetSourcePK().getSource().getSourceShortName());
 
-            JSONArray instruments = new JSONArray();
-            JSONObject instrument = new JSONObject();
-            instrument.put("ShortName", datasetSource.getDatasetSourcePK().getSensor().getSensorShortName());
-            instruments.add(instrument);
-            platform.put("Instruments", instruments);
+            Sensor sensor = datasetSource.getDatasetSourcePK().getSensor();
+            if (sensor != null && !sensor.getSensorShortName().trim().isEmpty()) {
+                JSONArray instruments = new JSONArray();
+                JSONObject instrument = new JSONObject();
+                instrument.put("ShortName", datasetSource.getDatasetSourcePK().getSensor().getSensorShortName());
+                instruments.add(instrument);
+                platform.put("Instruments", instruments);
+            }
 
             platforms.add(platform);
         }

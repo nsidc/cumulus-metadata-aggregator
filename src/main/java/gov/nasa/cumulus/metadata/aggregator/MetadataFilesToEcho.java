@@ -10,7 +10,6 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 
 import javax.xml.bind.DatatypeConverter;
 import javax.xml.parsers.DocumentBuilder;
@@ -324,12 +323,12 @@ public class MetadataFilesToEcho {
         // if we get here, we have the bare minimum fields already populated,
         // so try and parse the rest of the granule metadata...
         try {
+			((IsoGranule) this.granule).setIsoType(isoType);
             if (isoType == IsoType.MENDS) {
                 AdapterLogger.LogInfo("Found MENDS file");
                 readIsoMendsMetadataFile(s3Location, doc, xpath);
             } else if (isoType == IsoType.SMAP) {
                 AdapterLogger.LogInfo("Found SMAP file");
-				((IsoGranule) this.granule).setIsoType(isoType);
                 readIsoSmapMetadataFile(s3Location, doc, xpath);
             } else {
                 AdapterLogger.LogWarning(isoType.name() + " didn't match any expected ISO type, skipping optional " +
@@ -486,7 +485,6 @@ public class MetadataFilesToEcho {
 
 		((IsoGranule) granule).setOrbit(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.ORBIT, "IsoMendsXPath.ORBIT"));
 		((IsoGranule) granule).setSwotTrack(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.SWOT_TRACK, "IsoMendsXPath.SWOT_TRACK"));
-
 		Source source = new Source();
 		source.setSourceShortName(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.PLATFORM, "IsoMendsXPath.PLATFORM"));
 
@@ -511,7 +509,7 @@ public class MetadataFilesToEcho {
 		String  cyclePassTileSceneStr =StringUtils.trim(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.CYCLE_PASS_TILE_SCENE, "IsoMendsXPath.CYCLE_PASS_TILE_SCENE"));
 		if(!StringUtils.isBlank(cyclePassTileSceneStr)) {
 			try {
-				createIsoCyclePassTile(cyclePassTileSceneStr);
+				granule = createIsoCyclePassTile(cyclePassTileSceneStr);
 			} catch (Exception e) {
 				// Since TrackType which contains Cycle Pass Tile and Scenes is not a required field
 				// we catch exception with printStackTrace to know the exact line throwing error
@@ -810,6 +808,24 @@ public class MetadataFilesToEcho {
             AdapterLogger.LogInfo("Couldn't find orbit information from " + IsoSmapXPath.OrbitCalculatedSpatialDomains);
         }
 
+		String boundingBoxInformation = xpath.evaluate(IsoSmapXPath.BOUNDING_BOX, doc);
+		if (!boundingBoxInformation.trim().isEmpty()) {
+			String north = xpath.evaluate(IsoSmapXPath.NORTH_BOUNDING_COORDINATE, doc);
+			String south = xpath.evaluate(IsoSmapXPath.SOUTH_BOUNDING_COORDINATE, doc);
+			String east = xpath.evaluate(IsoSmapXPath.EAST_BOUNDING_COORDINATE, doc);
+			String west = xpath.evaluate(IsoSmapXPath.WEST_BOUNDING_COORDINATE, doc);
+
+			try {
+				setGranuleBoundingBox(Double.parseDouble(north),
+                                      Double.parseDouble(south),
+                                      Double.parseDouble(east),
+                                      Double.parseDouble(west));
+		    } catch (NullPointerException | NumberFormatException exception) {
+				throw new IllegalArgumentException(String.format("Failed to parse bbox N=%s S=%s E=%s W=%s",
+						                                         north, south, east, west), exception);
+			}
+		}
+
         ((IsoGranule) granule).setProducerGranuleId(xpath.evaluate(IsoSmapXPath.PRODUCER_GRANULE_ID, doc));
         ((IsoGranule) granule).setCrid(xpath.evaluate(IsoSmapXPath.CRID, doc));
         ((IsoGranule) granule).setParameterName("Parameter name placeholder");
@@ -822,14 +838,21 @@ public class MetadataFilesToEcho {
 
         Source source = new Source();
         source.setSourceShortName(xpath.evaluate(IsoSmapXPath.PLATFORM, doc));
-        Sensor sensor = new Sensor();
-        sensor.setSensorShortName(xpath.evaluate(IsoSmapXPath.INSTRUMENT, doc));
+		Sensor sensor = new Sensor();
+		sensor.setSensorShortName(xpath.evaluate(IsoSmapXPath.INSTRUMENT, doc));
 
         DatasetSource datasetSource = new DatasetSource();
         DatasetSource.DatasetSourcePK datasetSourcePK = new DatasetSource.DatasetSourcePK();
         datasetSourcePK.setSource(source);
-        datasetSourcePK.setSensor(sensor);
         datasetSource.setDatasetSourcePK(datasetSourcePK);
+
+		datasetSourcePK.setSource(source);
+
+	    if (!sensor.getSensorShortName().trim().isEmpty()) {
+			datasetSourcePK.setSensor(sensor);
+		}
+
+		datasetSource.setDatasetSourcePK(datasetSourcePK);
 
         dataset.add(datasetSource);
 
