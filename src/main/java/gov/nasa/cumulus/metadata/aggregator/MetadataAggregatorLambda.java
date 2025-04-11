@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import gov.nasa.cumulus.metadata.aggregator.processor.DMRPPProcessor;
 import gov.nasa.cumulus.metadata.aggregator.processor.FootprintProcessor;
@@ -62,8 +63,11 @@ public class MetadataAggregatorLambda implements ITask {
 		JSONArray isoXMLSpatialTypeJsonArray = (JSONArray) config.get("isoXMLSpatialType");
 		HashSet isoXMLSpatialTypeHashSet = createIsoXMLSpatialTypeSet(isoXMLSpatialTypeJsonArray);
 
-
+		Pattern isoRegexPat = null;
 		String isoRegex = (String) config.get("isoRegex");
+		if (isoRegex != null) {
+			isoRegexPat = Pattern.compile(isoRegex);
+		} 
 		String archiveXmlRegex = (String) config.get("archiveXmlRegex");
 		String calValXmlRegex = (String) config.get("calValXmlRegex");
 		String granuleId = (String) config.get("granuleId");
@@ -128,9 +132,9 @@ public class MetadataAggregatorLambda implements ITask {
 				objectList.add(f);
 			} else if (filename.endsWith(".cmr.json")) {
 				objectList.add(f);
-			} else if (isoRegex != null && filename.matches(isoRegex)) {
-				AdapterLogger.LogDebug(this.className + " download  isoRegrex from bucket:" + file.get("bucket") +
-						"  key" + file.get("key") + " to:" + Paths.get("/tmp", filename));
+			} else if (isoRegexPat != null && isoRegexPat.matcher(filename).find()) {
+				AdapterLogger.LogDebug(this.className + " download isoRegex from bucket:" + file.get("bucket") +
+						"  key:" + file.get("key") + " to:" + Paths.get("/tmp", filename));
 				iso = s3Utils.download(region, (String) file.get("bucket"), key,
 						Paths.get("/tmp", filename).toString());
 			} else if (filename.endsWith(".xfdumanifest.xml")) {
