@@ -118,7 +118,6 @@ public class MetadataAggregatorLambda implements ITask {
 			String filename = (String) file.get("fileName");
 			String key = (String) file.get("key");
 
-			//String filename = file.getName();
 			if (filename.endsWith(".mp")) {
 				mpFileBucket = (String) file.get("bucket");
 				mpFileKey = (String) file.get("key");
