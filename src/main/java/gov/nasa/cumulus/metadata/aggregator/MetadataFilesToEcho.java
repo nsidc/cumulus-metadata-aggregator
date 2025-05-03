@@ -124,7 +124,7 @@ public class MetadataFilesToEcho {
 		}
 
 		if (boundingBox != null) {
-			setGranuleBoundingBox(
+			addGranuleBoundingBox(
 					(Double) boundingBox.get("latMax"),
 					(Double) boundingBox.get("latMin"),
 					(Double) boundingBox.get("lonMax"),
@@ -204,7 +204,7 @@ public class MetadataFilesToEcho {
 		// setGranuleFileSizeAndChecksum function
 
 		//lat/lon
-		setGranuleBoundingBox(
+		addGranuleBoundingBox(
 				(Double)((JSONObject)metadata.get("boundingBox")).get("NorthernLatitude"),
 				(Double)((JSONObject)metadata.get("boundingBox")).get("SouthernLatitude"),
 				(Double)((JSONObject)metadata.get("boundingBox")).get("EasternLongitude"),
@@ -420,7 +420,7 @@ public class MetadataFilesToEcho {
 
 	public IsoGranule readIsoMendsMetadataFile(String s3Location, Document doc, XPath xpath) throws XPathExpressionException {
 		if (MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.NORTH_BOUNDING_COORDINATE, "IsoMendsXPath.NORTH_BOUNDING_COORDINATE")!= "") {
-			setGranuleBoundingBox(
+			addGranuleBoundingBox(
 					Double.parseDouble(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.NORTH_BOUNDING_COORDINATE, "IsoMendsXPath.NORTH_BOUNDING_COORDINATE")),
 					Double.parseDouble(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.SOUTH_BOUNDING_COORDINATE, "IsoMendsXPath.SOUTH_BOUNDING_COORDINATE")),
 					Double.parseDouble(MENDsISOXmlUtiils.extractXPathValueSwallowException(doc, xpath, IsoMendsXPath.EAST_BOUNDING_COORDINATE, "IsoMendsXPath.EAST_BOUNDING_COORDINATE")),
@@ -810,19 +810,34 @@ public class MetadataFilesToEcho {
 
 		String boundingBoxInformation = xpath.evaluate(IsoSmapXPath.BOUNDING_BOX, doc);
 		if (!boundingBoxInformation.trim().isEmpty()) {
-			String north = xpath.evaluate(IsoSmapXPath.NORTH_BOUNDING_COORDINATE, doc);
-			String south = xpath.evaluate(IsoSmapXPath.SOUTH_BOUNDING_COORDINATE, doc);
-			String east = xpath.evaluate(IsoSmapXPath.EAST_BOUNDING_COORDINATE, doc);
-			String west = xpath.evaluate(IsoSmapXPath.WEST_BOUNDING_COORDINATE, doc);
+			NodeList boundingBoxes = (NodeList)xpath.evaluate(IsoSmapXPath.BOUNDING_BOX, doc, XPathConstants.NODESET);
+			AdapterLogger.LogInfo("Found " + boundingBoxes.getLength() + " bounding box nodes.");
+			for (int i = 0; i < boundingBoxes.getLength(); i++) {
+				Node boundingBoxNode = boundingBoxes.item(i);
 
-			try {
-				setGranuleBoundingBox(Double.parseDouble(north),
-                                      Double.parseDouble(south),
-                                      Double.parseDouble(east),
-                                      Double.parseDouble(west));
-		    } catch (NullPointerException | NumberFormatException exception) {
-				throw new IllegalArgumentException(String.format("Failed to parse bbox N=%s S=%s E=%s W=%s",
-						                                         north, south, east, west), exception);
+				Element boundingBox = (Element)boundingBoxNode;
+
+				Element northBound = (Element)(boundingBox.getElementsByTagName("gmd:northBoundLatitude").item(0));
+				String north = northBound.getElementsByTagName("gco:Decimal").item(0).getTextContent();
+
+				Element southBound = (Element)(boundingBox.getElementsByTagName("gmd:southBoundLatitude").item(0));
+				String south = southBound.getElementsByTagName("gco:Decimal").item(0).getTextContent();
+
+				Element eastBound = (Element)(boundingBox.getElementsByTagName("gmd:eastBoundLongitude").item(0));
+				String east = eastBound.getElementsByTagName("gco:Decimal").item(0).getTextContent();
+
+				Element westBound = (Element)(boundingBox.getElementsByTagName("gmd:westBoundLongitude").item(0));
+				String west = westBound.getElementsByTagName("gco:Decimal").item(0).getTextContent();
+
+				try {
+					addGranuleBoundingBox(Double.parseDouble(north),
+										  Double.parseDouble(south),
+										  Double.parseDouble(east),
+										  Double.parseDouble(west));
+				} catch (NullPointerException | NumberFormatException exception) {
+					throw new IllegalArgumentException(String.format("Failed to parse bbox N=%s S=%s E=%s W=%s",
+																	 north, south, east, west), exception);
+				}
 			}
 		}
 
@@ -881,7 +896,7 @@ public class MetadataFilesToEcho {
 
 		granule = createSwotArchiveGranule(doc, xpath);
 		// No spatial extent exists for SWOT L0 data so set as global
-		setGranuleBoundingBox(90.0, -90.0, 180.0, -180.0);
+		addGranuleBoundingBox(90.0, -90.0, 180.0, -180.0);
 	}
     
     /**
@@ -917,7 +932,7 @@ public class MetadataFilesToEcho {
         }
     
         try {
-            setGranuleBoundingBox(Double.parseDouble(north),
+            addGranuleBoundingBox(Double.parseDouble(north),
                     Double.parseDouble(south),
                     Double.parseDouble(east),
                     Double.parseDouble(west));
@@ -1086,12 +1101,10 @@ public class MetadataFilesToEcho {
 		return trackType;
 	}
 
-	private void setGranuleBoundingBox(double north, double south, double east, double west) {
+	private void addGranuleBoundingBox(double north, double south, double east, double west) {
 		AdapterLogger.LogInfo("set bounding box 4 coordinates for UMMGranule object");
-		granule.setBbxNorthernLatitude(north);
-		granule.setBbxSouthernLatitude(south);
-		granule.setBbxEasternLongitude(east);
-		granule.setBbxWesternLongitude(west);
+		BoundingBox boundingBox = new BoundingBox(north, south, east, west);
+		granule.addBoundingBox(boundingBox);
 	}
 
 	public JSONObject createJson()
