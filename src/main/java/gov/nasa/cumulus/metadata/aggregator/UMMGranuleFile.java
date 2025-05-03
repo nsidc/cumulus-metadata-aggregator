@@ -534,14 +534,20 @@ public class UMMGranuleFile {
 
             double north = 0, south = 0, east = 0, west = 0;
             if(granule !=null &&  granule.getIsoType() == null) {
-                east = ((UMMGranule) granule).getBbxEasternLongitude() != null ?
-                        ((UMMGranule) granule).getBbxEasternLongitude() : 0;
-                west = ((UMMGranule) granule).getBbxWesternLongitude() != null?
-                        ((UMMGranule) granule).getBbxWesternLongitude() : 0;
-                north = ((UMMGranule) granule).getBbxNorthernLatitude() != null?
-                        ((UMMGranule) granule).getBbxNorthernLatitude() : 0;
-                south = ((UMMGranule) granule).getBbxSouthernLatitude() != null?
-                        ((UMMGranule) granule).getBbxSouthernLatitude() : 0;
+                List<BoundingBox> boundingBoxes = ((UMMGranule)granule).getBoundingBoxes();
+
+                if (!boundingBoxes.isEmpty()) {
+                    BoundingBox boundingBox = boundingBoxes.get(0);
+
+                    east = boundingBox.getBbxEasternLongitude() != null ?
+                            boundingBox.getBbxEasternLongitude() : 0;
+                    west = boundingBox.getBbxWesternLongitude() != null?
+                            boundingBox.getBbxWesternLongitude() : 0;
+                    north = boundingBox.getBbxNorthernLatitude() != null?
+                            boundingBox.getBbxNorthernLatitude() : 0;
+                    south = boundingBox.getBbxSouthernLatitude() != null?
+                            boundingBox.getBbxSouthernLatitude() : 0;
+                }
             } else {
                 Set<GranuleReal> grs = granule.getGranuleRealSet();
 
@@ -656,26 +662,36 @@ public class UMMGranuleFile {
     }
 
     public JSONObject appendBoundingRectangles (JSONObject geometry, JSONObject horizontalSpatialDomain) {
-        double north = 0, south = 0, east = 0, west = 0;
-        east = ((IsoGranule) granule).getBbxEasternLongitude() != null ?
-                ((IsoGranule) granule).getBbxEasternLongitude() : 0;
-        west = ((IsoGranule) granule).getBbxWesternLongitude() != null?
-                ((IsoGranule) granule).getBbxWesternLongitude() : 0;
-        north = ((IsoGranule) granule).getBbxNorthernLatitude() != null?
-                ((IsoGranule) granule).getBbxNorthernLatitude() : 0;
-        south = ((IsoGranule) granule).getBbxSouthernLatitude() != null?
-                ((IsoGranule) granule).getBbxSouthernLatitude() : 0;
-        if(BoundingTools.coordsInvalid(north, south, east, west)) {
-            west = -180.0;
-            east = -179.0;
-            north = -89.0;
-            south = -90.0;
-        }
         horizontalSpatialDomain.put("Geometry", geometry);
         JSONArray boundingRectangles = new JSONArray();
         geometry.put("BoundingRectangles", boundingRectangles);
-        boundingRectangles.add(createBoundingBoxJson(new BigDecimal(north), new BigDecimal(south),
-                new BigDecimal(east), new BigDecimal(west)));
+
+        for (BoundingBox boundingBox : ((IsoGranule)granule).getBoundingBoxes()) {
+            double north = 0, south = 0, east = 0, west = 0;
+
+            north = boundingBox.getBbxNorthernLatitude() != null ?
+                    boundingBox.getBbxNorthernLatitude() : 0;
+            south = boundingBox.getBbxSouthernLatitude() != null ?
+                    boundingBox.getBbxSouthernLatitude() : 0;
+            east = boundingBox.getBbxEasternLongitude() != null ?
+                   boundingBox.getBbxEasternLongitude() : 0;
+            west = boundingBox.getBbxWesternLongitude() != null ?
+                   boundingBox.getBbxWesternLongitude() : 0;
+
+            if (BoundingTools.coordsInvalid(north, south, east, west)) {
+                west = -180.0;
+                east = -179.0;
+                north = -89.0;
+                south = -90.0;
+            }
+
+            boundingRectangles.add(
+                createBoundingBoxJson(
+                    new BigDecimal(north), new BigDecimal(south),
+                    new BigDecimal(east), new BigDecimal(west)
+                )
+            );
+        }
         return horizontalSpatialDomain;
     }
 

@@ -7,6 +7,8 @@ import gov.nasa.podaac.inventory.model.Granule;
 import org.json.simple.JSONObject;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class UMMGranule extends Granule {
@@ -23,11 +25,8 @@ public class UMMGranule extends Granule {
     private Integer startOrbit;
     private Integer endOrbit;
     private String tile;
-    /* Bounding Box 4 points */
-    private Double bbxNorthernLatitude;
-    private Double bbxSouthernLatitude;
-    private Double bbxEasternLongitude;
-    private Double bbxWesternLongitude;
+    final private List<BoundingBox> boundingBoxes = new ArrayList<>();
+
     private BigDecimal equatorCrossingLongitude;
     private String equatorCrossingDateTime;
     private JSONObject dynamicAttributeNameMapping;
@@ -87,38 +86,6 @@ public class UMMGranule extends Granule {
         this.additionalAttributeTypes = additionalAttributeTypes;
     }
 
-    public Double getBbxNorthernLatitude() {
-        return bbxNorthernLatitude;
-    }
-
-    public void setBbxNorthernLatitude(Double bbxNorthernLatitude) {
-        this.bbxNorthernLatitude = bbxNorthernLatitude;
-    }
-
-    public Double getBbxSouthernLatitude() {
-        return bbxSouthernLatitude;
-    }
-
-    public void setBbxSouthernLatitude(Double bbxSouthernLatitude) {
-        this.bbxSouthernLatitude = bbxSouthernLatitude;
-    }
-
-    public Double getBbxEasternLongitude() {
-        return bbxEasternLongitude;
-    }
-
-    public void setBbxEasternLongitude(Double bbxEasternLongitude) {
-        this.bbxEasternLongitude = bbxEasternLongitude;
-    }
-
-    public Double getBbxWesternLongitude() {
-        return bbxWesternLongitude;
-    }
-
-    public void setBbxWesternLongitude(Double bbxWesternLongitude) {
-        this.bbxWesternLongitude = bbxWesternLongitude;
-    }
-
     public String getEquatorCrossingDateTime() {
         return equatorCrossingDateTime;
     }
@@ -141,5 +108,14 @@ public class UMMGranule extends Granule {
 
     public void setDynamicAttributeNameMapping(JSONObject dynamicAttributeNameMapping) {
         this.dynamicAttributeNameMapping = dynamicAttributeNameMapping;
+    }
+
+    public void addBoundingBox(BoundingBox bbox) {
+        System.out.println("Adding bounding box to UMMG granule");
+        boundingBoxes.add(bbox);
+    }
+
+    public List<BoundingBox> getBoundingBoxes() {
+        return Collections.unmodifiableList(boundingBoxes);
     }
 }

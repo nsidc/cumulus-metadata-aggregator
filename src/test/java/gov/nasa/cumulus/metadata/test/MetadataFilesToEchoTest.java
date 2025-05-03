@@ -84,11 +84,14 @@ public class MetadataFilesToEchoTest {
         assertEquals("2019.0", UMMUtils.getDatasetVersion(mfte.getDataset()));
 
         assertEquals(UMMGranule.class, mfte.getGranule().getClass());
+
         UMMGranule granule = (UMMGranule) mfte.getGranule();
-        assertEquals(-180, granule.getBbxWesternLongitude().intValue());
-        assertEquals(90, granule.getBbxNorthernLatitude().intValue());
-        assertEquals(180, granule.getBbxEasternLongitude().intValue());
-        assertEquals(-90, granule.getBbxSouthernLatitude().intValue());
+        BoundingBox granuleBoundingBox = granule.getBoundingBoxes().get(0);
+
+        assertEquals(-180, granuleBoundingBox.getBbxWesternLongitude().intValue());
+        assertEquals(90, granuleBoundingBox.getBbxNorthernLatitude().intValue());
+        assertEquals(180, granuleBoundingBox.getBbxEasternLongitude().intValue());
+        assertEquals(-90, granuleBoundingBox.getBbxSouthernLatitude().intValue());
     }
 
     @Test
