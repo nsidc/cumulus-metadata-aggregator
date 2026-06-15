@@ -3,7 +3,7 @@ name: Build
 on:
   # Triggers the workflow on push events
   push:
-    branches: [ develop, release/**, feature/**, master, main ]
+    branches: [develop, release/**, feature/**, master, main]
 
     # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -23,9 +23,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/setup-java@v2
         with:
-          distribution: 'adopt'
-          java-version: '11.0.6'
-      - uses: gradle/gradle-build-action@v1
+          distribution: "adopt"
+          java-version: "11.0.6"
+      - uses: gradle/gradle-build-action@v3
         with:
           gradle-version: 8.0.1
       - name: Install Python 3
@@ -116,13 +116,13 @@ jobs:
           draft: false
           prerelease: true
       - name: Upload PreRelease Asset
-        id: upload-prerelease-asset 
+        id: upload-prerelease-asset
         if: ${{ !contains(github.ref, 'master') }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_prerelease.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          upload_url: ${{ steps.create_prerelease.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
           asset_path: "${{ env.ARTIFACT_FILE }}"
           asset_name: "${{ env.ARTIFACT_FILE }}"
           asset_content_type: application/zip
@@ -133,7 +133,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
           asset_path: "${{ env.ARTIFACT_FILE }}"
           asset_name: "${{ env.ARTIFACT_FILE }}"
           asset_content_type: application/zip
